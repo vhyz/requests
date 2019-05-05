@@ -11,26 +11,27 @@
 
 #define RIO_BUFSIZE 8196
 
-struct rio_t {
-    union {
-        int rio_fd;
-        SSL* ssl;
-    };
-    bool is_ssl;
+class rio_t {
+public:
+    int rio_fd;
+    SSL *ssl;
+    SSL_CTX *ctx;
     int rio_cnt;
+    bool is_ssl;
     char *rio_bufptr;
     char rio_buf[RIO_BUFSIZE];
+
+    rio_t() = default;
+
+    void init(int fd, bool is_ssl);
+
+    ssize_t rioRead(char *usrbuf, size_t n);
+
+    ssize_t rioReadLine(void *usrbuf, size_t maxlen);
+
+    ssize_t rioReadNBytes(void *usrbuf, size_t n);
+
+    ssize_t rioWriten(void *usrbuf, size_t n);
 };
-
-void rio_init(rio_t *rp, int fd);
-
-ssize_t rio_read(rio_t *rp, char *usrbuf, size_t n);
-
-ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen);
-
-ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n);
-
-ssize_t rio_writen(int fd, void *usrbuf, size_t n);
-
 
 #endif //REQUESTS_RIO_H

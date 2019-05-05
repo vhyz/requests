@@ -45,13 +45,13 @@ public:
 
     virtual void send(const char *msg, ssize_t n);
 
-    std::string recv();
+    virtual std::string recv();
 
-    std::string readNBytes(int n);
+    virtual std::string readNBytes(int n);
 
-    int revc(char *p, ssize_t n);
+    virtual int revc(char *p, ssize_t n);
 
-    std::string readLine();
+    virtual std::string readLine();
 };
 
 class HttpClientSocket : public Socket {
@@ -63,13 +63,15 @@ public:
 
 class HttpsClientSocket : public Socket {
 public:
-    HttpClientSocket(const char*addr,int port);
+    HttpsClientSocket(const char *addr, int port);
 
-    HttpClientSocket(const std::string &addr,int port);
+    HttpsClientSocket(const std::string &addr, int port);
+
+    void shutdownClose() override;
 };
+
 class ServerSocket : public Socket {
 public:
-
 
 };
 

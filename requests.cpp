@@ -67,16 +67,16 @@ void Socket::send(const std::string &s) {
 }
 
 void Socket::send(const char *msg, ssize_t n) {
-    rio_writen(sockfd, (void *) msg, n);
+    rio.rioWriten((void *) msg, n);
 }
 
 int Socket::revc(char *p, ssize_t n) {
-    return rio_read(&rio, p, n);
+    return rio.rioRead(p, n);
 }
 
 std::string Socket::recv() {
     char buf[MAXLINE];
-    int n = rio_read(&rio, buf, MAXLINE);
+    int n = rio.rioRead(buf, MAXLINE);
     return std::string(buf, n);
 }
 
@@ -86,6 +86,7 @@ Socket::Socket(const std::string &addr, int port) {
 
 Socket::Socket(const char *addr, int port) {
     sockfd_init(addr, port);
+    rio.init(sockfd, false);
 }
 
 void Socket::shutdownClose() {
@@ -98,14 +99,13 @@ void Socket::sockfd_init(const char *addr, int port) {
     sockaddrIn.sin_family = AF_INET;
     sockaddrIn.sin_port = htons(port);
     inet_pton(AF_INET, addr, &sockaddrIn.sin_addr);
-    rio_init(&rio, sockfd);
 }
 
 std::string Socket::readLine() {
     std::string res;
     char buf[MAXLINE];
     while (true) {
-        int n = rio_readlineb(&rio, buf, MAXLINE);
+        int n = rio.rioReadLine(buf, MAXLINE);
         if (n == 0 || n == -1)
             break;
         res += std::string(buf, n - 1);
@@ -120,7 +120,7 @@ std::string Socket::readLine() {
 
 std::string Socket::readNBytes(int n) {
     char *buf = new char[n];
-    rio_readnb(&rio, buf, n);
+    rio.rioReadNBytes(buf, n);
     std::string s(buf, n);
     delete[] buf;
     return s;
@@ -148,8 +148,7 @@ const Dict baseHeader = {
         {"Connection",      "keep-alive"}
 };
 
-int decompress(const char * src, int srcLen, char * dst, int dstLen)
-{
+int decompress(const char *src, int srcLen, char *dst, int dstLen) {
     z_stream strm;
     strm.zalloc = nullptr;
     strm.zfree = nullptr;
@@ -157,34 +156,29 @@ int decompress(const char * src, int srcLen, char * dst, int dstLen)
 
     strm.avail_in = srcLen;
     strm.avail_out = dstLen;
-    strm.next_in = (Bytef *)src;
-    strm.next_out = (Bytef *)dst;
+    strm.next_in = (Bytef *) src;
+    strm.next_out = (Bytef *) dst;
 
     int err = -1;
-    err = inflateInit2(&strm, MAX_WBITS+16);
+    err = inflateInit2(&strm, MAX_WBITS + 16);
     //err = inflateInit(&strm);
-    if (err == Z_OK)
-    {
+    if (err == Z_OK) {
         err = inflate(&strm, Z_FINISH);
-        if (err == Z_STREAM_END)
-        {
-            (void)inflateEnd(&strm);
+        if (err == Z_STREAM_END) {
+            (void) inflateEnd(&strm);
             return strm.total_out;
-        }
-        else
-        {
-            (void)inflateEnd(&strm);
+        } else {
+            (void) inflateEnd(&strm);
             return -1;
         }
-    }
-    else
-    {
+    } else {
         inflateEnd(&strm);
         return 0;
     }
 }
 
-void readBodyByContentLength(std::shared_ptr<HttpResponse> &response, HttpClientSocket &clientSocket, int contentLength) {
+void
+readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
     while (true) {
         std::string text = clientSocket.recv();
         response->text += text;
@@ -195,7 +189,7 @@ void readBodyByContentLength(std::shared_ptr<HttpResponse> &response, HttpClient
     }
 }
 
-void readBodyByChunked(std::shared_ptr<HttpResponse> &response, HttpClientSocket &clientSocket) {
+void readBodyByChunked(std::shared_ptr<HttpResponse> &response, Socket &clientSocket) {
     while (true) {
         std::string text = clientSocket.readLine();
         int length = std::stoi(text, nullptr, 16);
@@ -207,8 +201,8 @@ void readBodyByChunked(std::shared_ptr<HttpResponse> &response, HttpClientSocket
         clientSocket.readLine();
     }
     char buf[100000];
-    int n = decompress(response->text.c_str(),response->text.size(),buf,sizeof buf);
-    response->text = std::string(buf,n);
+    int n = decompress(response->text.c_str(), response->text.size(), buf, sizeof buf);
+    response->text = std::string(buf, n);
 }
 
 std::shared_ptr<HttpResponse>
@@ -224,7 +218,9 @@ std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &r
     Dict sendHeader = baseHeader;
     sendHeader.insert(requestOption.headers.begin(), requestOption.headers.end());
     std::string host;
+    int port;
     if (url.substr(0, 5) == "http:") {
+        port = 80;
         int pos;
         for (pos = 7; pos < url.size(); ++pos) {
             if (url[pos] == '/')
@@ -239,6 +235,20 @@ std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &r
         sendMsg += CRLF;
         host = sendHeader["Host"] = url.substr(7, pos - 7);
     } else {
+        port = 443;
+        int pos;
+        for (pos = 8; pos < url.size(); ++pos) {
+            if (url[pos] == '/')
+                break;
+        }
+        if (pos == url.size()) {
+            sendMsg += " /";
+        } else {
+            sendMsg += " " + url.substr(pos, url.size() - pos);
+        }
+        sendMsg += " HTTP/1.1";
+        sendMsg += CRLF;
+        host = sendHeader["Host"] = url.substr(8, pos - 8);
     }
     for (auto &p :sendHeader) {
         sendMsg += p.first + ": " + p.second + CRLF;
@@ -248,7 +258,7 @@ std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &r
     std::shared_ptr<HttpResponse> response = std::make_shared<HttpResponse>();
     for (auto pptr = hostPtr->h_addr_list; *pptr != nullptr; ++pptr) {
         const char *ip = inet_ntoa(*((in_addr *) *pptr));
-        HttpClientSocket clientSocket(ip, 80);
+        HttpsClientSocket clientSocket(ip, port);
         clientSocket.send(sendMsg);
         std::string line = clientSocket.readLine();
         std::vector<std::string> vec;
@@ -256,6 +266,7 @@ std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &r
         response->statusCode = std::stoi(vec[1]);
         while (true) {
             line = clientSocket.readLine();
+            what_is(line);
             if (line.empty() || line == "\r")
                 break;
             auto v = split(line, ':');
@@ -271,6 +282,8 @@ std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &r
         if (transferEncodingIterator != response->headers.end()) {
             readBodyByChunked(response, clientSocket);
         }
+        what_is(response->text);
+        break;
     }
     return response;
 }
@@ -285,4 +298,26 @@ std::shared_ptr<HttpResponse> put(const std::string &url, const RequestOption &r
 
 std::shared_ptr<HttpResponse> patch(const std::string &url, const RequestOption &requestOption) {
 
+}
+
+HttpsClientSocket::HttpsClientSocket(const char *addr, int port) : Socket(addr, port) {
+    sockfd_init(addr, port);
+    rio.init(sockfd, true);
+    SSL_load_error_strings();
+    SSLeay_add_ssl_algorithms();
+    const SSL_METHOD *method = SSLv23_client_method();
+    rio.ctx = SSL_CTX_new(method);
+    connect(sockfd, (sockaddr *) &sockaddrIn, sizeof(sockaddrIn));
+    rio.ssl = SSL_new(rio.ctx);
+    SSL_set_fd(rio.ssl, sockfd);
+    SSL_connect(rio.ssl);
+}
+
+HttpsClientSocket::HttpsClientSocket(const std::string &addr, int port) : HttpsClientSocket(addr.c_str(), port) {}
+
+void HttpsClientSocket::shutdownClose() {
+    SSL_shutdown(rio.ssl);
+    SSL_free(rio.ssl);
+    SSL_CTX_free(rio.ctx);
+    Socket::shutdownClose();
 }

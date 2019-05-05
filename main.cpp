@@ -6,8 +6,6 @@
 
 int main() {
     RequestOption requestOption;
-    for (int i = 0; i < 10; ++i) {
-        auto r = get("http://www.cnblogs.com/vhyz", requestOption);
-    }
+    auto r = get("https://vhyz.me/", requestOption);
     return 0;
 }
