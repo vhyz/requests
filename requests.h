@@ -13,7 +13,8 @@
 #include <unistd.h>
 #include <map>
 #include <memory>
-#include "rio.h"
+#include <iconv.h>
+#include "Buffer.h"
 
 #define MAXLINE 4096
 
@@ -26,7 +27,7 @@ using Headers = Dict;
 class Socket {
 protected:
     int sockfd;
-    rio_t rio;
+    Buffer buffer;
     sockaddr_in sockaddrIn;
 
     void sockfd_init(const char *addr, int port);
@@ -47,27 +48,66 @@ public:
 
     virtual std::string recv();
 
+    virtual int recv(char *p, ssize_t n);
+
     virtual std::string readNBytes(int n);
 
-    virtual int revc(char *p, ssize_t n);
-
     virtual std::string readLine();
+
+    virtual int readNBytes(char *p, size_t n);
 };
 
-class HttpClientSocket : public Socket {
+class ClientSocket : public Socket {
 public:
-    HttpClientSocket(const char *addr, int port);
+    ClientSocket(const char *addr, int port);
 
-    HttpClientSocket(const std::string &addr, int port);
+    ClientSocket(const std::string &addr, int port);
 };
 
-class HttpsClientSocket : public Socket {
+class SslClientSocket : public Socket {
 public:
-    HttpsClientSocket(const char *addr, int port);
+    SslClientSocket(const char *addr, int port);
 
-    HttpsClientSocket(const std::string &addr, int port);
+    SslClientSocket(const std::string &addr, int port);
 
     void shutdownClose() override;
+
+    inline void send(const std::string &s) override;
+
+    void send(const char *msg, ssize_t n) override;
+
+    int recv(char *p, ssize_t n) override;
+
+    std::string recv() override;
+
+    std::string readNBytes(int n) override;
+
+    int readNBytes(char *p, size_t n) override;
+
+    std::string readLine() override;
+
+private:
+    ssize_t sslReadBuffer(char *usrbuf, size_t n);
+
+    ssize_t sslReadLine(void *usrbuf, size_t maxlen);
+
+    ssize_t sslReadNBytes(void *usrbuf, size_t n);
+
+    ssize_t sslWriteNBytes(void *usrbuf, size_t n);
+
+private:
+    SSL *ssl;
+
+    static SSL_CTX *ctx;
+
+    static bool isSslInit;
+
+    static void sslInit();
+
+    static void freeCtx();
+
+    static void createCtx();
+
 };
 
 class ServerSocket : public Socket {
@@ -90,6 +130,17 @@ public:
     Dict data;
     Dict headers;
     int timeout;
+};
+
+class CharsetConverter {
+private:
+    iconv_t cd;
+public:
+    CharsetConverter(const char *fromCharset, const char *toCharset);
+
+    ~CharsetConverter();
+
+    int convert(const char *inbuf, int inlen, char *outbuf, int outlen);
 };
 
 std::pair<Headers, int> readHeaders(const std::string &s);

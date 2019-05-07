@@ -6,6 +6,6 @@
 
 int main() {
     RequestOption requestOption;
-    auto r = get("https://vhyz.me/", requestOption);
+    auto r = get("https://translate.google.cn/", requestOption);
     return 0;
 }
