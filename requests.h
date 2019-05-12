@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/types.h>
+#include <string_view>
 #include <string>
 #include <unistd.h>
 #include <map>
@@ -62,17 +63,17 @@ public:
 
 using HttpResponsePtr = std::shared_ptr<HttpResponse>;
 
-HttpResponsePtr request(const std::string &method, const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr request(const std::string &method, const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr head(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr head(const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr get(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr get(const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr post(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr post(const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr put(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr put(const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr patch(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr patch(const std::string_view &url, const RequestOption &requestOption);
 
 
 #endif //REQUESTS_REQUESTS_H

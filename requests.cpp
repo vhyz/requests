@@ -98,7 +98,7 @@ int decompress(const char *src, int srcLen, char *dst, int dstLen) {
 
 /*
  *  已知body长度，读取body
- *  或者Keep-Alive为close，未指明长度
+ *  或者Connection为close，未指明长度
  */
 void
 readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
@@ -182,10 +182,12 @@ void request_help(Socket &clientSocket, HttpResponsePtr response) {
         what_is(line);
         if (line.empty() || line == "\r")
             break;
-        auto v = split(line, ':');
-        updateStandardHeadersField(v[0]);
-        deleteHeadersValueSpace(v[1]);
-        response->headers[std::move(v[0])] = std::move(v[1]);
+        int pos = line.find(':');
+        std::string headersKey = line.substr(0, pos);
+        std::string headersValue = line.substr(pos + 1, line.size() - pos - 1);
+        updateStandardHeadersField(headersKey);
+        deleteHeadersValueSpace(headersValue);
+        response->headers[std::move(headersKey)] = std::move(headersValue);
     }
     auto contentLengthIterator = response->headers.find("Content-Length");
     auto transferEncodingIterator = response->headers.find("Transfer-Encoding");
@@ -198,7 +200,6 @@ void request_help(Socket &clientSocket, HttpResponsePtr response) {
     } else if (contentLengthIterator != response->headers.end()) {
         readBodyByContentLength(response, clientSocket, std::stoi(contentLengthIterator->second));
     }
-    what_is(response->text);
     clientSocket.shutdownClose();
 }
 
@@ -218,14 +219,10 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg, int
     return url.substr(start, pos - start);
 }
 
-std::string hostToIp(const std::string &host) {
-
-}
-
 /*
  *  暴露在外的request接口
  */
-HttpResponsePtr request(const std::string &method, const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr request(const std::string &method, const std::string_view &url, const RequestOption &requestOption) {
     Dict sendHeader = {
             {"User-Agent",      "C++-requests"},
             {"Accept-Encoding", "gzip, deflate"},
@@ -269,30 +266,33 @@ HttpResponsePtr request(const std::string &method, const std::string &url, const
         }
         break;
     }
+    if (response->statusCode == 301) {
+        return request(method, response->headers["Location"], requestOption);
+    }
     return response;
 }
 
-HttpResponsePtr head(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr head(const std::string_view &url, const RequestOption &requestOption) {
     return request("HEAD", url, requestOption);
 }
 
-HttpResponsePtr get(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr get(const std::string_view &url, const RequestOption &requestOption) {
     return request("GET", url, requestOption);
 }
 
-HttpResponsePtr post(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr post(const std::string_view &url, const RequestOption &requestOption) {
     return request("POST", url, requestOption);
 }
 
-HttpResponsePtr put(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr put(const std::string_view &url, const RequestOption &requestOption) {
     return request("PUT", url, requestOption);
 }
 
-HttpResponsePtr patch(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr patch(const std::string_view &url, const RequestOption &requestOption) {
     return request("PATCH", url, requestOption);
 }
 
-HttpResponsePtr Delete(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr Delete(const std::string_view &url, const RequestOption &requestOption) {
     return request("DELETE", url, requestOption);
 }
 

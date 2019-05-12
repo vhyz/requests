@@ -6,7 +6,8 @@
 
 int main() {
     RequestOption requestOption;
-    auto r = get("http://www.zhihu.com", requestOption);
+    HttpResponsePtr r = get("http://www.zhihu.com", requestOption);
+    std::cout << r->text << std::endl;
     std::cout << r->statusCode << std::endl;
     return 0;
 }
