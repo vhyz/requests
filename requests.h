@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <iconv.h>
+#include <ostream>
 #include "Buffer.h"
 
 #define MAXLINE 4096
@@ -62,6 +63,7 @@ public:
     ClientSocket(const char *addr, int port);
 
     ClientSocket(const std::string &addr, int port);
+
 };
 
 class SslClientSocket : public Socket {
@@ -130,6 +132,8 @@ public:
     Dict data;
     Dict headers;
     int timeout;
+
+    RequestOption() = default;
 };
 
 class CharsetConverter {
@@ -143,20 +147,19 @@ public:
     int convert(const char *inbuf, int inlen, char *outbuf, int outlen);
 };
 
-std::pair<Headers, int> readHeaders(const std::string &s);
+using HttpResponsePtr = std::shared_ptr<HttpResponse>;
 
-std::shared_ptr<HttpResponse>
-request(const std::string &method, const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr request(const std::string &method, const std::string &url, const RequestOption &requestOption);
 
-std::shared_ptr<HttpResponse> head(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr head(const std::string &url, const RequestOption &requestOption);
 
-std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr get(const std::string &url, const RequestOption &requestOption);
 
-std::shared_ptr<HttpResponse> post(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr post(const std::string &url, const RequestOption &requestOption);
 
-std::shared_ptr<HttpResponse> put(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr put(const std::string &url, const RequestOption &requestOption);
 
-std::shared_ptr<HttpResponse> patch(const std::string &url, const RequestOption &requestOption);
+HttpResponsePtr patch(const std::string &url, const RequestOption &requestOption);
 
 
 #endif //REQUESTS_REQUESTS_H

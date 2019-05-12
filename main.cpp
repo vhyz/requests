@@ -6,6 +6,7 @@
 
 int main() {
     RequestOption requestOption;
-    auto r = get("https://translate.google.cn/", requestOption);
+    auto r = get("http://www.zhihu.com", requestOption);
+    std::cout << r->statusCode << std::endl;
     return 0;
 }

@@ -69,7 +69,7 @@ void Socket::send(const std::string &s) {
 }
 
 void Socket::send(const char *msg, ssize_t n) {
-    buffer.writeNBytes((void *) msg, n);
+    what_is(buffer.writeNBytes((void *) msg, n));
 }
 
 int Socket::recv(char *p, ssize_t n) {
@@ -108,6 +108,7 @@ std::string Socket::readLine() {
     char buf[MAXLINE];
     while (true) {
         int n = buffer.readLine(buf, MAXLINE);
+        what_is(n);
         if (n == 0 || n == -1)
             break;
         res += std::string(buf, n - 1);
@@ -133,7 +134,7 @@ int Socket::readNBytes(char *p, size_t n) {
 }
 
 ClientSocket::ClientSocket(const char *addr, int port) : Socket(addr, port) {
-    connect(sockfd, (sockaddr *) &sockaddrIn, sizeof sockaddrIn);
+    what_is(connect(sockfd, (sockaddr *) &sockaddrIn, sizeof sockaddrIn));
 }
 
 ClientSocket::ClientSocket(const std::string &addr, int port) : ClientSocket(addr.c_str(), port) {}
@@ -174,6 +175,7 @@ int decompress(const char *src, int srcLen, char *dst, int dstLen) {
 
 /*
  *  已知body长度，读取body
+ *  或者Keep-Alive为close，未指明长度
  */
 void
 readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
@@ -191,6 +193,7 @@ readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientS
  *  以 chunked 的方式分段读取数据body
  */
 void readBodyByChunked(std::shared_ptr<HttpResponse> &response, Socket &clientSocket) {
+
     while (true) {
         std::string text = clientSocket.readLine();
         int length = std::stoi(text, nullptr, 16);
@@ -203,7 +206,6 @@ void readBodyByChunked(std::shared_ptr<HttpResponse> &response, Socket &clientSo
     }
     char buf[1024 * 1024];
     int n = decompress(response->text.c_str(), response->text.size(), buf, sizeof buf);
-    what_is(n);
     response->text = std::string(buf, n);
 }
 
@@ -220,7 +222,7 @@ char dec2hexChar(int n) {
 /*
  *  网址编码函数
  */
-std::string urlEncode(const std::string &s) {
+std::string urlEncode(const std::string_view &s) {
     std::string res;
     static std::set<char> safeCharSet = {'!', '#', '$', '&', '\'', '(', ')', '*', '+', ',', '/', ':', ';', '=', '?',
                                          '@', '-', '.', '~'};
@@ -247,46 +249,72 @@ std::string urlEncode(const std::string &s) {
     return res;
 }
 
+void request_help(Socket &clientSocket, HttpResponsePtr response) {
+    std::string line = clientSocket.readLine();
+    std::vector<std::string> vec;
+    split(vec, line, ' ');
+    response->statusCode = std::stoi(vec[1]);
+    while (true) {
+        line = clientSocket.readLine();
+        what_is(line);
+        if (line.empty() || line == "\r")
+            break;
+        auto v = split(line, ':');
+        updateStandardHeadersField(v[0]);
+        deleteHeadersValueSpace(v[1]);
+        response->headers[std::move(v[0])] = std::move(v[1]);
+    }
+    auto contentLengthIterator = response->headers.find("Content-Length");
+    auto transferEncodingIterator = response->headers.find("Transfer-Encoding");
+    auto contentEncodingIterator = response->headers.find("Content-Encoding");
+    auto connectionIterator = response->headers.find("Connection");
+    if (transferEncodingIterator != response->headers.end()) {
+        readBodyByChunked(response, clientSocket);
+    }else if (connectionIterator != response->headers.end() && connectionIterator->second == "close") {
+        readBodyByContentLength(response, clientSocket, -1);
+    } else if (contentLengthIterator != response->headers.end()) {
+        readBodyByContentLength(response, clientSocket, std::stoi(contentLengthIterator->second));
+    }
+    what_is(response->text);
+    clientSocket.shutdownClose();
+}
+
+std::string_view parseUrl(const std::string_view &url, std::string &sendMsg, int pos) {
+    int start = pos;
+    for (; pos < url.size(); ++pos) {
+        if (url[pos] == '/')
+            break;
+    }
+    if (pos == url.size()) {
+        sendMsg += " /";
+    } else {
+        sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
+    }
+    sendMsg += " HTTP/1.1";
+    sendMsg += CRLF;
+    return url.substr(start, pos - start);
+}
+
 /*
  *  暴露在外的request接口
  */
-std::shared_ptr<HttpResponse>
-request(const std::string &method, const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr request(const std::string &method, const std::string &url, const RequestOption &requestOption) {
     std::string sendMsg = method;
     Dict sendHeader = baseHeader;
-    sendHeader.insert(requestOption.headers.begin(), requestOption.headers.end());
-    std::string host;
+    for (auto &p:requestOption.headers) {
+        sendHeader[p.first] = p.second;
+    }
     int port;
+    bool isHttps;
+    std::string host;
     if (url.substr(0, 5) == "http:") {
         port = 80;
-        int pos;
-        for (pos = 7; pos < url.size(); ++pos) {
-            if (url[pos] == '/')
-                break;
-        }
-        if (pos == url.size()) {
-            sendMsg += " /";
-        } else {
-            sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
-        }
-        sendMsg += " HTTP/1.1";
-        sendMsg += CRLF;
-        host = sendHeader["Host"] = url.substr(7, pos - 7);
+        isHttps = false;
+        host = sendHeader["Host"] = parseUrl(url, sendMsg, 7);
     } else {
         port = 443;
-        int pos;
-        for (pos = 8; pos < url.size(); ++pos) {
-            if (url[pos] == '/')
-                break;
-        }
-        if (pos == url.size()) {
-            sendMsg += " /";
-        } else {
-            sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
-        }
-        sendMsg += " HTTP/1.1";
-        sendMsg += CRLF;
-        host = sendHeader["Host"] = url.substr(8, pos - 8);
+        isHttps = true;
+        host = sendHeader["Host"] = parseUrl(url, sendMsg, 8);
     }
     for (auto &p :sendHeader) {
         sendMsg += p.first + ": " + p.second + CRLF;
@@ -294,71 +322,45 @@ request(const std::string &method, const std::string &url, const RequestOption &
     sendMsg += CRLF;
     what_is(sendMsg);
     auto hostPtr = gethostbyname(host.c_str());
-    std::shared_ptr<HttpResponse> response = std::make_shared<HttpResponse>();
+    HttpResponsePtr response = std::make_shared<HttpResponse>();
     for (auto pptr = hostPtr->h_addr_list; *pptr != nullptr; ++pptr) {
         const char *ip = inet_ntoa(*((in_addr *) *pptr));
-        SslClientSocket clientSocket(ip, port);
-        clientSocket.send(sendMsg);
-        std::string line = clientSocket.readLine();
-        std::vector<std::string> vec;
-        split(vec, line, ' ');
-        response->statusCode = std::stoi(vec[1]);
-        while (true) {
-            line = clientSocket.readLine();
-            what_is(line);
-            if (line.empty() || line == "\r")
-                break;
-            auto v = split(line, ':');
-            updateStandardHeadersField(v[0]);
-            deleteHeadersValueSpace(v[1]);
-            response->headers[std::move(v[0])] = std::move(v[1]);
+        if (isHttps) {
+            SslClientSocket clientSocket(ip, port);
+            clientSocket.send(sendMsg);
+            request_help(clientSocket, response);
+        } else {
+            ClientSocket clientSocket(ip, port);
+            clientSocket.send(sendMsg);
+            request_help(clientSocket, response);
         }
-        auto contentLengthIterator = response->headers.find("Content-Length");
-        auto transferEncodingIterator = response->headers.find("Transfer-Encoding");
-        if (contentLengthIterator != response->headers.end()) {
-            readBodyByContentLength(response, clientSocket, std::stoi(contentLengthIterator->second));
-        }
-        if (transferEncodingIterator != response->headers.end()) {
-            readBodyByChunked(response, clientSocket);
-        }
-        CharsetConverter charsetConverter("GBK", "UTF-8");
-        char buf[512000];
-        int n = charsetConverter.convert(response->text.c_str(), response->text.size(), buf, sizeof buf);
-        if (n == -1) {
-            what_is(strerror(errno));
-            return response;
-        }
-        what_is(n);
-        response->text = std::string(buf, n);
-        what_is(response->text);
-        clientSocket.shutdownClose();
         break;
     }
     return response;
 }
 
-std::shared_ptr<HttpResponse> head(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr head(const std::string &url, const RequestOption &requestOption) {
     return request("HEAD", url, requestOption);
 }
 
-std::shared_ptr<HttpResponse> get(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr get(const std::string &url, const RequestOption &requestOption) {
     return request("GET", url, requestOption);
 }
 
-std::shared_ptr<HttpResponse> post(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr post(const std::string &url, const RequestOption &requestOption) {
     return request("POST", url, requestOption);
 }
 
-std::shared_ptr<HttpResponse> put(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr put(const std::string &url, const RequestOption &requestOption) {
     return request("PUT", url, requestOption);
 }
 
-std::shared_ptr<HttpResponse> patch(const std::string &url, const RequestOption &requestOption) {
+HttpResponsePtr patch(const std::string &url, const RequestOption &requestOption) {
     return request("PATCH", url, requestOption);
 }
 
-std::shared_ptr<HttpResponse> Delete(const std::string &url, const RequestOption &requestOption) {
-    return request("Delete", url, requestOption);
+HttpResponsePtr Delete(const std::string &url, const RequestOption &requestOption) {
+    return request("DELETE", url, requestOption);
 }
 
 SslClientSocket::SslClientSocket(const char *addr, int port) : Socket(addr, port) {

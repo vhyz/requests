@@ -6,10 +6,11 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(requests main.cpp requests.cpp Buffer.cpp)
 
 
+
 target_link_libraries(requests libssl.a)
 target_link_libraries(requests libcrypto.a)
 target_link_libraries(requests dl)
 target_link_libraries(requests pthread)
 
 
-target_link_libraries(requests libz.a)
+target_link_libraries(requests z)
