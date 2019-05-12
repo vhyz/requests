@@ -3,7 +3,7 @@ project(requests)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(requests main.cpp requests.cpp Buffer.cpp)
+add_executable(requests main.cpp requests.cpp Buffer.cpp SslClientSocket.cpp Socket.cpp ClientSocket.cpp)
 
 
 

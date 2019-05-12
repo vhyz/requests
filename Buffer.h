@@ -6,10 +6,10 @@
 #define REQUESTS_BUFFER_H
 
 #include <sys/types.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 
 #define RIO_BUFSIZE 8196
+#define MAXLINE 4096
+
 
 class Buffer {
 public:

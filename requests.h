@@ -16,101 +16,14 @@
 #include <iconv.h>
 #include <ostream>
 #include "Buffer.h"
-
-#define MAXLINE 4096
+#include "Socket.h"
 
 using Dict = std::map<std::string, std::string>;
 using Headers = Dict;
 
-/*
- * Socket : base class of ClientSocket and ServerSocket
- */
-class Socket {
-protected:
-    int sockfd;
-    Buffer buffer;
-    sockaddr_in sockaddrIn;
 
-    void sockfd_init(const char *addr, int port);
 
-public:
-    Socket(const char *addr, int port);
 
-    Socket(const std::string &addr, int port);
-
-/*
- *
- */
-    virtual void shutdownClose();
-
-    virtual void send(const std::string &s);
-
-    virtual void send(const char *msg, ssize_t n);
-
-    virtual std::string recv();
-
-    virtual int recv(char *p, ssize_t n);
-
-    virtual std::string readNBytes(int n);
-
-    virtual std::string readLine();
-
-    virtual int readNBytes(char *p, size_t n);
-};
-
-class ClientSocket : public Socket {
-public:
-    ClientSocket(const char *addr, int port);
-
-    ClientSocket(const std::string &addr, int port);
-
-};
-
-class SslClientSocket : public Socket {
-public:
-    SslClientSocket(const char *addr, int port);
-
-    SslClientSocket(const std::string &addr, int port);
-
-    void shutdownClose() override;
-
-    inline void send(const std::string &s) override;
-
-    void send(const char *msg, ssize_t n) override;
-
-    int recv(char *p, ssize_t n) override;
-
-    std::string recv() override;
-
-    std::string readNBytes(int n) override;
-
-    int readNBytes(char *p, size_t n) override;
-
-    std::string readLine() override;
-
-private:
-    ssize_t sslReadBuffer(char *usrbuf, size_t n);
-
-    ssize_t sslReadLine(void *usrbuf, size_t maxlen);
-
-    ssize_t sslReadNBytes(void *usrbuf, size_t n);
-
-    ssize_t sslWriteNBytes(void *usrbuf, size_t n);
-
-private:
-    SSL *ssl;
-
-    static SSL_CTX *ctx;
-
-    static bool isSslInit;
-
-    static void sslInit();
-
-    static void freeCtx();
-
-    static void createCtx();
-
-};
 
 class ServerSocket : public Socket {
 public:

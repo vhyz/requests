@@ -7,8 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
 
 void Buffer::init(int fd) {
     this->fd = fd;
