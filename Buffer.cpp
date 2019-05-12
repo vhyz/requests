@@ -3,9 +3,9 @@
 //
 
 #include "Buffer.h"
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 #include <unistd.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -54,7 +54,7 @@ ssize_t Buffer::readBuffer(char *usrbuf, size_t n) {
     cnt = bufCnt < n ? bufCnt : n;
     memcpy(usrbuf, bufPointer, cnt);
     bufPointer += cnt;
-    cnt -= cnt;
+    bufCnt -= cnt;
     return cnt;
 }
 
