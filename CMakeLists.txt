@@ -11,6 +11,4 @@ target_link_libraries(requests ssl)
 target_link_libraries(requests crypto)
 target_link_libraries(requests dl)
 target_link_libraries(requests pthread)
-
-
 target_link_libraries(requests z)

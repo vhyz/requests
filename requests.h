@@ -18,22 +18,14 @@
 #include <ostream>
 #include "Buffer.h"
 #include "Socket.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 using Dict = std::map<std::string, std::string>;
 using Headers = Dict;
 
-
-
-
-
-class ServerSocket : public Socket {
-public:
-
-};
-
-
 class HttpResponse {
-
 public:
     Headers headers;
     std::string text;
@@ -42,11 +34,11 @@ public:
 
 class RequestOption {
 public:
-    Dict params;
-    Dict data;
+    rapidjson::Document data;
+    rapidjson::Document params;
+    rapidjson::Document json;
     Dict headers;
     int timeout;
-
     RequestOption() = default;
 };
 

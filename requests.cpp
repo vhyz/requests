@@ -101,7 +101,7 @@ int decompress(const char *src, int srcLen, char *dst, int dstLen) {
  *  或者Connection为close，未指明长度
  */
 void
-readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
+readBodyByContentLength(const std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
     while (true) {
         std::string text = clientSocket.recv();
         response->text += text;
@@ -115,7 +115,7 @@ readBodyByContentLength(std::shared_ptr<HttpResponse> &response, Socket &clientS
 /*
  *  以 chunked 的方式分段读取数据body
  */
-void readBodyByChunked(std::shared_ptr<HttpResponse> &response, Socket &clientSocket) {
+void readBodyByChunked(const std::shared_ptr<HttpResponse> &response, Socket &clientSocket) {
 
     while (true) {
         std::string text = clientSocket.readLine();
@@ -172,7 +172,7 @@ std::string urlEncode(const std::string_view &s) {
     return res;
 }
 
-void request_help(Socket &clientSocket, HttpResponsePtr response) {
+void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     std::string line = clientSocket.readLine();
     std::vector<std::string> vec;
     split(vec, line, ' ');
@@ -203,7 +203,49 @@ void request_help(Socket &clientSocket, HttpResponsePtr response) {
     clientSocket.shutdownClose();
 }
 
-std::string_view parseUrl(const std::string_view &url, std::string &sendMsg, int pos) {
+/*
+ *  将Json内容转化为Url-Encode的data
+ */
+void convertJsonToUrlEncodeData(std::string &str, const rapidjson::Document &document) {
+
+    if (document.IsObject()) {
+        str.push_back('?');
+        for (rapidjson::Value::ConstMemberIterator iterator = document.MemberBegin();
+             iterator != document.MemberEnd(); ++iterator) {
+
+            assert(iterator->value.IsString() || iterator->value.IsArray());
+
+            if (iterator->value.IsString()) {
+                str += urlEncode(iterator->name.GetString());
+                str.push_back('=');
+                str += urlEncode(iterator->value.GetString());
+            } else {
+                for (rapidjson::SizeType i = 0; i < iterator->value.Size(); ++i) {
+
+                    assert(iterator->value[i].IsString());
+
+                    str += urlEncode(iterator->name.GetString());
+                    str.push_back('=');
+                    str += urlEncode(iterator->value[i].GetString());
+
+                    if (i + 1 != iterator->value.Size())
+                        str.push_back('&');
+                }
+            }
+            if (iterator + 1 != document.MemberEnd()) {
+                str.push_back('&');
+            }
+        }
+    }
+}
+
+/*
+ *  解析url，返回host
+ *  为了防止拷贝，返回string_view
+ *  这是因为url的生命周期不会过早结束
+ */
+std::string_view
+parseUrl(const std::string_view &url, std::string &sendMsg, int pos, const rapidjson::Document &document) {
     int start = pos;
     for (; pos < url.size(); ++pos) {
         if (url[pos] == '/')
@@ -214,6 +256,9 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg, int
     } else {
         sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
     }
+
+    convertJsonToUrlEncodeData(sendMsg, document);
+
     sendMsg += " HTTP/1.1";
     sendMsg += CRLF;
     return url.substr(start, pos - start);
@@ -236,20 +281,32 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
     }
     int port;
     bool isHttps;
-    std::string host;
+    std::string host, body;
     if (url.substr(0, 5) == "http:") {
         port = 80;
         isHttps = false;
-        host = sendHeader["Host"] = parseUrl(url, sendMsg, 7);
+        host = sendHeader["Host"] = parseUrl(url, sendMsg, 7, requestOption.params);
     } else {
         port = 443;
         isHttps = true;
-        host = sendHeader["Host"] = parseUrl(url, sendMsg, 8);
+        host = sendHeader["Host"] = parseUrl(url, sendMsg, 8, requestOption.params);
+    }
+    if (requestOption.data.IsObject()) {
+        convertJsonToUrlEncodeData(body, requestOption.data);
+        sendHeader["Content-Type"] = "application/x-www-form-urlencoded";
+    }
+    if (!requestOption.json.IsObject()) {
+        rapidjson::StringBuffer stringBuffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
+        requestOption.json.Accept(writer);
+        sendMsg += stringBuffer.GetString();
+        sendHeader["Content-Type"] = "application/json";
     }
     for (auto &p :sendHeader) {
         sendMsg += p.first + ": " + p.second + CRLF;
     }
     sendMsg += CRLF;
+    sendMsg += body;
     what_is(sendMsg);
     auto hostPtr = gethostbyname(host.c_str());
     HttpResponsePtr response = std::make_shared<HttpResponse>();

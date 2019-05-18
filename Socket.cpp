@@ -24,9 +24,7 @@ std::string Socket::recv() {
     return std::string(buf, n);
 }
 
-Socket::Socket(const std::string &addr, int port) {
-    sockfd_init(addr.c_str(), port);
-}
+Socket::Socket(const std::string &addr, int port) : Socket(addr.c_str(), port) {}
 
 Socket::Socket(const char *addr, int port) {
     sockfd_init(addr, port);
