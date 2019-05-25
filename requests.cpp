@@ -17,6 +17,7 @@
 #include "Socket.h"
 #include "SslClientSocket.h"
 #include "ClientSokcet.h"
+#include "Logging.h"
 
 #define CRLF "\r\n"
 #define what_is(x) (std::cout<<x<<std::endl)
@@ -174,6 +175,7 @@ std::string urlEncode(const std::string_view &s) {
 
 void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     std::string line = clientSocket.readLine();
+    std::string line1 = clientSocket.readLine();
     std::vector<std::string> vec;
     split(vec, line, ' ');
     response->statusCode = std::stoi(vec[1]);
@@ -268,6 +270,7 @@ parseUrl(const std::string_view &url, std::string &sendMsg, int pos, const rapid
  *  暴露在外的request接口
  */
 HttpResponsePtr request(const std::string &method, const std::string_view &url, const RequestOption &requestOption) {
+
     Dict sendHeader = {
             {"User-Agent",      "C++-requests"},
             {"Accept-Encoding", "gzip, deflate"},
@@ -295,7 +298,7 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
         convertJsonToUrlEncodeData(body, requestOption.data);
         sendHeader["Content-Type"] = "application/x-www-form-urlencoded";
     }
-    if (!requestOption.json.IsObject()) {
+    if (!requestOption.json.IsNull()) {
         rapidjson::StringBuffer stringBuffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
         requestOption.json.Accept(writer);
