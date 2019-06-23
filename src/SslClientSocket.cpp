@@ -41,7 +41,7 @@ void SslClientSocket::freeCtx() {
 
 void SslClientSocket::createCtx() {
     if (ctx == nullptr) {
-        ctx = SSL_CTX_new(TLSv1_client_method());
+        ctx = SSL_CTX_new(TLS_client_method());
     }
 }
 
