@@ -2,32 +2,31 @@
 // Created by vhyz on 19-5-1.
 //
 
-#include <strings.h>
-#include <iostream>
-#include <functional>
-#include <netdb.h>
 #include "requests.h"
-#include <vector>
-#include <thread>
-#include <zlib.h>
-#include <openssl/ssl.h>
+#include <netdb.h>
 #include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <strings.h>
+#include <zlib.h>
 #include <cstring>
+#include <functional>
+#include <iostream>
 #include <set>
-#include "Socket.h"
-#include "SslClientSocket.h"
+#include <thread>
+#include <vector>
 #include "ClientSokcet.h"
 #include "Logging.h"
+#include "Socket.h"
+#include "SslClientSocket.h"
 
 #define CRLF "\r\n"
-#define what_is(x) (std::cout<<x<<std::endl)
+#define what_is(x) (std::cout << x << std::endl)
 
 void split(std::vector<std::string> &vec, const std::string &s, char c) {
     int start = 0, pos;
     while (start < s.size()) {
         pos = start;
-        while (pos < s.size() && s[pos] != c)
-            pos++;
+        while (pos < s.size() && s[pos] != c) pos++;
         vec.push_back(s.substr(start, pos - start));
         start = pos + 1;
     }
@@ -38,8 +37,7 @@ std::vector<std::string> split(const std::string &s, char c) {
     int start = 0, pos;
     while (start < s.size()) {
         pos = start;
-        while (pos < s.size() && s[pos] != c)
-            pos++;
+        while (pos < s.size() && s[pos] != c) pos++;
         vec.push_back(s.substr(start, pos - start));
         start = pos + 1;
     }
@@ -47,16 +45,14 @@ std::vector<std::string> split(const std::string &s, char c) {
 }
 
 void updateStandardHeadersField(std::string &field) {
-    if (field == "ETag")
-        return;
+    if (field == "ETag") return;
     for (int i = 0; i < field.size(); ++i) {
         if (islower(field[i])) {
             field[i] -= 32;
         }
         i++;
         while (i < field.size() && field[i] != '-') {
-            if (isupper(field[i]))
-                field[i] += 32;
+            if (isupper(field[i])) field[i] += 32;
             i++;
         }
     }
@@ -64,11 +60,9 @@ void updateStandardHeadersField(std::string &field) {
 
 void deleteHeadersValueSpace(std::string &s) {
     int pos = 0;
-    while (pos < s.size() && s[pos] == ' ')
-        pos++;
+    while (pos < s.size() && s[pos] == ' ') pos++;
     s.erase(s.begin(), s.begin() + pos);
 }
-
 
 int decompress(const char *src, int srcLen, char *dst, int dstLen) {
     z_stream strm;
@@ -78,17 +72,17 @@ int decompress(const char *src, int srcLen, char *dst, int dstLen) {
 
     strm.avail_in = srcLen;
     strm.avail_out = dstLen;
-    strm.next_in = (Bytef *) src;
-    strm.next_out = (Bytef *) dst;
+    strm.next_in = (Bytef *)src;
+    strm.next_out = (Bytef *)dst;
 
     int err = inflateInit2(&strm, MAX_WBITS + 16);
     if (err == Z_OK) {
         err = inflate(&strm, Z_FINISH);
         if (err == Z_STREAM_END) {
-            (void) inflateEnd(&strm);
+            (void)inflateEnd(&strm);
             return strm.total_out;
         } else {
-            (void) inflateEnd(&strm);
+            (void)inflateEnd(&strm);
             return -1;
         }
     } else {
@@ -97,27 +91,31 @@ int decompress(const char *src, int srcLen, char *dst, int dstLen) {
     }
 }
 
+void decompress(const HttpResponsePtr &response) {
+    char buf[1024 * 1024];
+    int n = decompress(response->text.c_str(), response->text.size(), buf,
+                       sizeof buf);
+    response->text = std::string(buf, n);
+}
 /*
  *  已知body长度，读取body
  *  或者Connection为close，未指明长度
  */
-void
-readBodyByContentLength(const std::shared_ptr<HttpResponse> &response, Socket &clientSocket, int contentLength) {
+void readBodyByContentLength(const std::shared_ptr<HttpResponse> &response,
+                             Socket &clientSocket, int contentLength) {
     while (true) {
         std::string text = clientSocket.recv();
         response->text += text;
-        if (text.empty())
-            break;
-        if (response->text.size() == contentLength)
-            break;
+        if (text.empty()) break;
+        if (response->text.size() == contentLength) break;
     }
 }
 
 /*
  *  以 chunked 的方式分段读取数据body
  */
-void readBodyByChunked(const std::shared_ptr<HttpResponse> &response, Socket &clientSocket) {
-
+void readBodyByChunked(const std::shared_ptr<HttpResponse> &response,
+                       Socket &clientSocket) {
     while (true) {
         std::string text = clientSocket.readLine();
         int length = std::stoi(text, nullptr, 16);
@@ -128,9 +126,6 @@ void readBodyByChunked(const std::shared_ptr<HttpResponse> &response, Socket &cl
         response->text += clientSocket.readNBytes(length);
         clientSocket.readLine();
     }
-    char buf[1024 * 1024];
-    int n = decompress(response->text.c_str(), response->text.size(), buf, sizeof buf);
-    response->text = std::string(buf, n);
 }
 
 /*
@@ -148,10 +143,12 @@ char dec2hexChar(int n) {
  */
 std::string urlEncode(const std::string_view &s) {
     std::string res;
-    static std::set<char> safeCharSet = {'!', '#', '$', '&', '\'', '(', ')', '*', '+', ',', '/', ':', ';', '=', '?',
-                                         '@', '-', '.', '~'};
-    for (const char &c:s) {
-        if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')) {
+    static std::set<char> safeCharSet = {'!', '#', '$', '&', '\'', '(', ')',
+                                         '*', '+', ',', '/', ':',  ';', '=',
+                                         '?', '@', '-', '.', '~'};
+    for (const char &c : s) {
+        if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
+            ('0' <= c && c <= '9')) {
             res.push_back(c);
             continue;
         }
@@ -182,8 +179,7 @@ void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     while (true) {
         line = clientSocket.readLine();
         what_is(line);
-        if (line.empty() || line == "\r")
-            break;
+        if (line.empty() || line == "\r") break;
         int pos = line.find(':');
         std::string headersKey = line.substr(0, pos);
         std::string headersValue = line.substr(pos + 1, line.size() - pos - 1);
@@ -197,10 +193,15 @@ void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     auto connectionIterator = response->headers.find("Connection");
     if (transferEncodingIterator != response->headers.end()) {
         readBodyByChunked(response, clientSocket);
-    } else if (connectionIterator != response->headers.end() && connectionIterator->second == "close") {
+    } else if (connectionIterator != response->headers.end() &&
+               connectionIterator->second == "close") {
         readBodyByContentLength(response, clientSocket, -1);
     } else if (contentLengthIterator != response->headers.end()) {
-        readBodyByContentLength(response, clientSocket, std::stoi(contentLengthIterator->second));
+        readBodyByContentLength(response, clientSocket,
+                                std::stoi(contentLengthIterator->second));
+    }
+    if (contentEncodingIterator != response->headers.end()) {
+        decompress(response);
     }
     clientSocket.shutdownClose();
 }
@@ -208,13 +209,13 @@ void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
 /*
  *  将Json内容转化为Url-Encode的data
  */
-void convertJsonToUrlEncodeData(std::string &str, const rapidjson::Document &document) {
-
+void convertJsonToUrlEncodeData(std::string &str,
+                                const rapidjson::Document &document) {
     if (document.IsObject()) {
         str.push_back('?');
-        for (rapidjson::Value::ConstMemberIterator iterator = document.MemberBegin();
+        for (rapidjson::Value::ConstMemberIterator iterator =
+                 document.MemberBegin();
              iterator != document.MemberEnd(); ++iterator) {
-
             assert(iterator->value.IsString() || iterator->value.IsArray());
 
             if (iterator->value.IsString()) {
@@ -222,16 +223,15 @@ void convertJsonToUrlEncodeData(std::string &str, const rapidjson::Document &doc
                 str.push_back('=');
                 str += urlEncode(iterator->value.GetString());
             } else {
-                for (rapidjson::SizeType i = 0; i < iterator->value.Size(); ++i) {
-
+                for (rapidjson::SizeType i = 0; i < iterator->value.Size();
+                     ++i) {
                     assert(iterator->value[i].IsString());
 
                     str += urlEncode(iterator->name.GetString());
                     str.push_back('=');
                     str += urlEncode(iterator->value[i].GetString());
 
-                    if (i + 1 != iterator->value.Size())
-                        str.push_back('&');
+                    if (i + 1 != iterator->value.Size()) str.push_back('&');
                 }
             }
             if (iterator + 1 != document.MemberEnd()) {
@@ -246,12 +246,11 @@ void convertJsonToUrlEncodeData(std::string &str, const rapidjson::Document &doc
  *  为了防止拷贝，返回string_view
  *  这是因为url的生命周期不会过早结束
  */
-std::string_view
-parseUrl(const std::string_view &url, std::string &sendMsg, int pos, const rapidjson::Document &document) {
+std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
+                          int pos, const rapidjson::Document &document) {
     int start = pos;
     for (; pos < url.size(); ++pos) {
-        if (url[pos] == '/')
-            break;
+        if (url[pos] == '/') break;
     }
     if (pos == url.size()) {
         sendMsg += " /";
@@ -269,17 +268,15 @@ parseUrl(const std::string_view &url, std::string &sendMsg, int pos, const rapid
 /*
  *  暴露在外的request接口
  */
-HttpResponsePtr request(const std::string &method, const std::string_view &url, const RequestOption &requestOption) {
-
-    Dict sendHeader = {
-            {"User-Agent",      "C++-requests"},
-            {"Accept-Encoding", "gzip, deflate"},
-            {"Accept",          "*/*"},
-            {"Connection",      "keep-alive"}
-    };
+HttpResponsePtr request(const std::string &method, const std::string_view &url,
+                        const RequestOption &requestOption) {
+    Dict sendHeader = {{"User-Agent", "C++-requests"},
+                       {"Accept-Encoding", "gzip, deflate"},
+                       {"Accept", "*/*"},
+                       {"Connection", "keep-alive"}};
 
     std::string sendMsg = method;
-    for (auto &p:requestOption.headers) {
+    for (auto &p : requestOption.headers) {
         sendHeader[p.first] = p.second;
     }
     int port;
@@ -288,11 +285,13 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
     if (url.substr(0, 5) == "http:") {
         port = 80;
         isHttps = false;
-        host = sendHeader["Host"] = parseUrl(url, sendMsg, 7, requestOption.params);
+        host = sendHeader["Host"] =
+            parseUrl(url, sendMsg, 7, requestOption.params);
     } else {
         port = 443;
         isHttps = true;
-        host = sendHeader["Host"] = parseUrl(url, sendMsg, 8, requestOption.params);
+        host = sendHeader["Host"] =
+            parseUrl(url, sendMsg, 8, requestOption.params);
     }
     if (requestOption.data.IsObject()) {
         convertJsonToUrlEncodeData(body, requestOption.data);
@@ -305,7 +304,7 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
         sendMsg += stringBuffer.GetString();
         sendHeader["Content-Type"] = "application/json";
     }
-    for (auto &p :sendHeader) {
+    for (auto &p : sendHeader) {
         sendMsg += p.first + ": " + p.second + CRLF;
     }
     sendMsg += CRLF;
@@ -314,7 +313,7 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
     auto hostPtr = gethostbyname(host.c_str());
     HttpResponsePtr response = std::make_shared<HttpResponse>();
     for (auto pptr = hostPtr->h_addr_list; *pptr != nullptr; ++pptr) {
-        const char *ip = inet_ntoa(*((in_addr *) *pptr));
+        const char *ip = inet_ntoa(*((in_addr *)*pptr));
         if (isHttps) {
             SslClientSocket clientSocket(ip, port);
             clientSocket.send(sendMsg);
@@ -332,40 +331,46 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url, 
     return response;
 }
 
-HttpResponsePtr head(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr head(const std::string_view &url,
+                     const RequestOption &requestOption) {
     return request("HEAD", url, requestOption);
 }
 
-HttpResponsePtr get(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr get(const std::string_view &url,
+                    const RequestOption &requestOption) {
     return request("GET", url, requestOption);
 }
 
-HttpResponsePtr post(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr post(const std::string_view &url,
+                     const RequestOption &requestOption) {
     return request("POST", url, requestOption);
 }
 
-HttpResponsePtr put(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr put(const std::string_view &url,
+                    const RequestOption &requestOption) {
     return request("PUT", url, requestOption);
 }
 
-HttpResponsePtr patch(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr patch(const std::string_view &url,
+                      const RequestOption &requestOption) {
     return request("PATCH", url, requestOption);
 }
 
-HttpResponsePtr Delete(const std::string_view &url, const RequestOption &requestOption) {
+HttpResponsePtr Delete(const std::string_view &url,
+                       const RequestOption &requestOption) {
     return request("DELETE", url, requestOption);
 }
 
-
-CharsetConverter::CharsetConverter(const char *fromCharset, const char *toCharset) {
+CharsetConverter::CharsetConverter(const char *fromCharset,
+                                   const char *toCharset) {
     cd = iconv_open(toCharset, fromCharset);
 }
 
-CharsetConverter::~CharsetConverter() {
-    iconv_close(cd);
-}
+CharsetConverter::~CharsetConverter() { iconv_close(cd); }
 
-int CharsetConverter::convert(const char *inbuf, int inlen, char *outbuf, int outlen) {
+int CharsetConverter::convert(const char *inbuf, int inlen, char *outbuf,
+                              int outlen) {
     memset(outbuf, 0, outlen);
-    return iconv(cd, (char **) &inbuf, (size_t *) &inlen, &outbuf, (size_t *) &outlen);
+    return iconv(cd, (char **)&inbuf, (size_t *)&inlen, &outbuf,
+                 (size_t *)&outlen);
 }
