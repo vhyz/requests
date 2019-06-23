@@ -8,9 +8,9 @@
 
 ## 依赖
 
-* zlib
-* openssl
-* RapidJson
+* [zlib](https://zlib.net/)
+* [OpenSSL](https://github.com/openssl/openssl)
+* [Tencent/RapidJSON](https://github.com/Tencent/rapidjson)
 
 ## 已完成
 
