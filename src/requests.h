@@ -63,9 +63,5 @@ HttpResponsePtr get(const std::string_view &url, const RequestOption &requestOpt
 
 HttpResponsePtr post(const std::string_view &url, const RequestOption &requestOption);
 
-HttpResponsePtr put(const std::string_view &url, const RequestOption &requestOption);
-
-HttpResponsePtr patch(const std::string_view &url, const RequestOption &requestOption);
-
 
 #endif //REQUESTS_REQUESTS_H

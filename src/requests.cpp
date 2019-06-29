@@ -15,6 +15,7 @@
 #include <thread>
 #include <vector>
 #include "ClientSokcet.h"
+#include "DecompressGzip.h"
 #include "Logging.h"
 #include "Socket.h"
 #include "SslClientSocket.h"
@@ -64,39 +65,17 @@ void deleteHeadersValueSpace(std::string &s) {
     s.erase(s.begin(), s.begin() + pos);
 }
 
-int decompress(const char *src, int srcLen, char *dst, int dstLen) {
-    z_stream strm;
-    strm.zalloc = nullptr;
-    strm.zfree = nullptr;
-    strm.opaque = nullptr;
-
-    strm.avail_in = srcLen;
-    strm.avail_out = dstLen;
-    strm.next_in = (Bytef *)src;
-    strm.next_out = (Bytef *)dst;
-
-    int err = inflateInit2(&strm, MAX_WBITS + 16);
-    if (err == Z_OK) {
-        err = inflate(&strm, Z_FINISH);
-        if (err == Z_STREAM_END) {
-            (void)inflateEnd(&strm);
-            return strm.total_out;
-        } else {
-            (void)inflateEnd(&strm);
-            return -1;
-        }
-    } else {
-        inflateEnd(&strm);
-        return 0;
-    }
-}
-
+/*
+ *  利用zlib解压缩gzip数据
+ */
 void decompress(const HttpResponsePtr &response) {
-    char buf[1024 * 1024];
-    int n = decompress(response->text.c_str(), response->text.size(), buf,
-                       sizeof buf);
-    response->text = std::string(buf, n);
+    std::string decompressedString;
+    decompressGzip(response->text, decompressedString);
+    std::cout << "压缩前 " << response->text.size() << std::endl;
+    std::cout << "压缩后 " << decompressedString.size() << std::endl;
+    response->text = std::move(decompressedString);
 }
+
 /*
  *  已知body长度，读取body
  *  或者Connection为close，未指明长度
@@ -271,7 +250,7 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
 HttpResponsePtr request(const std::string &method, const std::string_view &url,
                         const RequestOption &requestOption) {
     Dict sendHeader = {{"User-Agent", "C++-requests"},
-                       {"Accept-Encoding", "gzip, deflate"},
+                       {"Accept-Encoding", "gzip"},
                        {"Accept", "*/*"},
                        {"Connection", "keep-alive"}};
 
@@ -344,21 +323,6 @@ HttpResponsePtr get(const std::string_view &url,
 HttpResponsePtr post(const std::string_view &url,
                      const RequestOption &requestOption) {
     return request("POST", url, requestOption);
-}
-
-HttpResponsePtr put(const std::string_view &url,
-                    const RequestOption &requestOption) {
-    return request("PUT", url, requestOption);
-}
-
-HttpResponsePtr patch(const std::string_view &url,
-                      const RequestOption &requestOption) {
-    return request("PATCH", url, requestOption);
-}
-
-HttpResponsePtr Delete(const std::string_view &url,
-                       const RequestOption &requestOption) {
-    return request("DELETE", url, requestOption);
 }
 
 CharsetConverter::CharsetConverter(const char *fromCharset,
