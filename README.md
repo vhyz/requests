@@ -21,6 +21,6 @@
 
 * POST
 * HEAD
-* PUT
-* DELETE
-* PATCH
+* 编码转换
+* Keep-Alive的Connection
+* 错误处理
