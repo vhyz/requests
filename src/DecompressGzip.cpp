@@ -31,7 +31,8 @@ bool decompressGzip(const std::string& compressedString,
         return false;
     }
 
-    while (true) {
+    bool done = false;
+    while (!done) {
         // 如果空间不够，扩大一倍空间
         if (strm.total_out >= decompressLength) {
             decompressedString.resize(2 * decompressLength);
@@ -43,15 +44,20 @@ bool decompressGzip(const std::string& compressedString,
 
         int err = inflate(&strm, Z_SYNC_FLUSH);
         if (err == Z_STREAM_END) {
+            done = true;
             break;
         }
         if (err != Z_OK) {
-            return false;
+            done = false;
+            break;
         }
     }
 
     inflateEnd(&strm);
-
+    if (!done) {
+        decompressedString.clear();
+        return false;
+    }
     decompressedString.resize(strm.total_out);
 
     return true;

@@ -46,14 +46,16 @@ std::vector<std::string> split(const std::string &s, char c) {
 }
 
 void updateStandardHeadersField(std::string &field) {
-    if (field == "ETag") return;
+    if (field == "ETag")
+        return;
     for (int i = 0; i < field.size(); ++i) {
         if (islower(field[i])) {
             field[i] -= 32;
         }
         i++;
         while (i < field.size() && field[i] != '-') {
-            if (isupper(field[i])) field[i] += 32;
+            if (isupper(field[i]))
+                field[i] += 32;
             i++;
         }
     }
@@ -85,8 +87,10 @@ void readBodyByContentLength(const std::shared_ptr<HttpResponse> &response,
     while (true) {
         std::string text = clientSocket.recv();
         response->text += text;
-        if (text.empty()) break;
-        if (response->text.size() == contentLength) break;
+        if (text.empty())
+            break;
+        if (response->text.size() == contentLength)
+            break;
     }
 }
 
@@ -151,14 +155,14 @@ std::string urlEncode(const std::string_view &s) {
 
 void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     std::string line = clientSocket.readLine();
-    std::string line1 = clientSocket.readLine();
     std::vector<std::string> vec;
     split(vec, line, ' ');
     response->statusCode = std::stoi(vec[1]);
     while (true) {
         line = clientSocket.readLine();
         what_is(line);
-        if (line.empty() || line == "\r") break;
+        if (line.empty() || line == "\r")
+            break;
         int pos = line.find(':');
         std::string headersKey = line.substr(0, pos);
         std::string headersValue = line.substr(pos + 1, line.size() - pos - 1);
@@ -210,7 +214,8 @@ void convertJsonToUrlEncodeData(std::string &str,
                     str.push_back('=');
                     str += urlEncode(iterator->value[i].GetString());
 
-                    if (i + 1 != iterator->value.Size()) str.push_back('&');
+                    if (i + 1 != iterator->value.Size())
+                        str.push_back('&');
                 }
             }
             if (iterator + 1 != document.MemberEnd()) {
@@ -229,7 +234,8 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
                           int pos, const rapidjson::Document &document) {
     int start = pos;
     for (; pos < url.size(); ++pos) {
-        if (url[pos] == '/') break;
+        if (url[pos] == '/')
+            break;
     }
     if (pos == url.size()) {
         sendMsg += " /";

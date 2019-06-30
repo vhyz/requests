@@ -4,18 +4,20 @@
 #include "SslClientSocket.h"
 #include <cstring>
 
-SslClientSocket::SslClientSocket(const char *addr, int port) : Socket(addr, port) {
+SslClientSocket::SslClientSocket(const char *addr, int port)
+    : Socket(addr, port) {
     sockfd_init(addr, port);
     buffer.init(sockfd);
     sslInit();
     createCtx();
-    connect(sockfd, (sockaddr *) &sockaddrIn, sizeof(sockaddrIn));
+    connect(sockfd, (sockaddr *)&sockaddrIn, sizeof(sockaddrIn));
     ssl = SSL_new(ctx);
     SSL_set_fd(ssl, sockfd);
     SSL_connect(ssl);
 }
 
-SslClientSocket::SslClientSocket(const std::string &addr, int port) : SslClientSocket(addr.c_str(), port) {}
+SslClientSocket::SslClientSocket(const std::string &addr, int port)
+    : SslClientSocket(addr.c_str(), port) {}
 
 void SslClientSocket::shutdownClose() {
     SSL_shutdown(ssl);
@@ -50,14 +52,15 @@ void SslClientSocket::send(const std::string &msg) {
 }
 
 void SslClientSocket::send(const char *msg, ssize_t n) {
-    sslWriteNBytes((void *) msg, n);
+    sslWriteNBytes((void *)msg, n);
 }
 
 std::string SslClientSocket::readNBytes(int n) {
-    char *buf = new char[n];
-    sslReadNBytes(buf, n);
-    std::string s(buf, n);
-    delete[] buf;
+    /*
+     * C++17 std::string::data() is char*,it can be modified.
+     */
+    std::string s(n, 0);
+    sslReadNBytes(s.data(), n);
     return s;
 }
 
@@ -78,9 +81,7 @@ std::string SslClientSocket::readLine() {
     return res;
 }
 
-int SslClientSocket::recv(char *p, ssize_t n) {
-    return sslReadBuffer(p, n);
-}
+int SslClientSocket::recv(char *p, ssize_t n) { return sslReadBuffer(p, n); }
 
 std::string SslClientSocket::recv() {
     char buf[MAXLINE];
@@ -89,7 +90,6 @@ std::string SslClientSocket::recv() {
 }
 
 ssize_t SslClientSocket::sslReadBuffer(char *usrbuf, size_t n) {
-
     while (buffer.bufCnt <= 0) {
         buffer.bufCnt = SSL_read(ssl, buffer.buf, sizeof(buffer.buf));
 
