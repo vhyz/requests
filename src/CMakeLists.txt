@@ -9,9 +9,8 @@ add_executable(
     main.cpp 
     requests.cpp
     Buffer.cpp 
-    SslClientSocket.cpp
+    SslSocket.cpp
     Socket.cpp
-    ClientSocket.cpp 
     Logging.cpp
     DecompressGzip.cpp
  )

@@ -5,8 +5,8 @@
 #ifndef REQUESTS_SOCKET_H
 #define REQUESTS_SOCKET_H
 
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <string>
 #include "Buffer.h"
 
@@ -14,21 +14,22 @@
  * Socket : base class of ClientSocket and ServerSocket
  */
 class Socket {
-protected:
+   protected:
     int sockfd;
     Buffer buffer;
     sockaddr_in sockaddrIn;
 
     void sockfd_init(const char *addr, int port);
 
-public:
+   public:
     Socket(const char *addr, int port);
 
     Socket(const std::string &addr, int port);
 
-/*
- *
- */
+    Socket() = default;
+
+    virtual bool connect();
+
     virtual void shutdownClose();
 
     virtual void send(const std::string &s);
@@ -46,5 +47,4 @@ public:
     virtual int readNBytes(char *p, size_t n);
 };
 
-
-#endif //REQUESTS_SOCKET_H
+#endif  // REQUESTS_SOCKET_H

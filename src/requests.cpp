@@ -14,11 +14,10 @@
 #include <set>
 #include <thread>
 #include <vector>
-#include "ClientSokcet.h"
 #include "DecompressGzip.h"
 #include "Logging.h"
 #include "Socket.h"
-#include "SslClientSocket.h"
+#include "SslSocket.h"
 
 #define CRLF "\r\n"
 #define what_is(x) (std::cout << x << std::endl)
@@ -300,11 +299,17 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
     for (auto pptr = hostPtr->h_addr_list; *pptr != nullptr; ++pptr) {
         const char *ip = inet_ntoa(*((in_addr *)*pptr));
         if (isHttps) {
-            SslClientSocket clientSocket(ip, port);
+            SslSocket clientSocket(ip, port);
+            if (clientSocket.connect() == false) {
+                return response;
+            }
             clientSocket.send(sendMsg);
             request_help(clientSocket, response);
         } else {
-            ClientSocket clientSocket(ip, port);
+            Socket clientSocket(ip, port);
+            if (clientSocket.connect() == false) {
+                return response;
+            }
             clientSocket.send(sendMsg);
             request_help(clientSocket, response);
         }

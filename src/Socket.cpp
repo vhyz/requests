@@ -25,7 +25,18 @@ Socket::Socket(const std::string &addr, int port)
 
 Socket::Socket(const char *addr, int port) {
     sockfd_init(addr, port);
-    buffer.init(sockfd);
+    auto readCallBack =
+        std::bind(::read, sockfd, std::placeholders::_1, std::placeholders::_2);
+    auto writeCallBack = std::bind(::write, sockfd, std::placeholders::_1,
+                                   std::placeholders::_2);
+    buffer.setCallBack(readCallBack, writeCallBack);
+}
+
+bool Socket::connect() {
+    if (::connect(sockfd, (sockaddr *)&sockaddrIn, sizeof sockaddrIn) == 0)
+        return true;
+    else
+        return false;
 }
 
 void Socket::shutdownClose() { close(sockfd); }

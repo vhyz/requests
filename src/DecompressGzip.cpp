@@ -13,7 +13,7 @@ bool decompressGzip(const std::string& compressedString,
         decompressedString = compressedString;
         return true;
     }
-
+    
     size_t decompressLength = compressedString.size() * 4;
 
     decompressedString.resize(decompressLength);
@@ -28,6 +28,7 @@ bool decompressGzip(const std::string& compressedString,
     strm.total_out = 0;
 
     if (inflateInit2(&strm, MAX_WBITS + 16) != Z_OK) {
+        inflateEnd(&strm);
         return false;
     }
 

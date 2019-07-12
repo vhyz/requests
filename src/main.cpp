@@ -11,7 +11,6 @@ int main() {
         "Gecko) "
         "Chrome/74.0.3729.157 Safari/537.36";
     std::string urls[] = {"https://www.baidu.com",
-                          "https://www.github.com",
                           "https://www.zhihu.com",
                           "https://vhyz.github.io",
                           "http://hssgame.com",

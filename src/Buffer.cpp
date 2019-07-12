@@ -3,15 +3,20 @@
 //
 
 #include "Buffer.h"
+#include <unistd.h>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
-#include <unistd.h>
 
-void Buffer::init(int fd) {
-    this->fd = fd;
+Buffer::Buffer() {
     this->bufCnt = 0;
     this->bufPointer = buf;
+}
+
+void Buffer::setCallBack(const BufferCallBack &readCallBack,
+                         const BufferCallBack &writeCallBack) {
+    this->readCallBack = readCallBack;
+    this->writeCallBack = writeCallBack;
 }
 
 ssize_t Buffer::readLine(void *usrbuf, size_t maxlen) {
@@ -40,9 +45,10 @@ ssize_t Buffer::readBuffer(char *usrbuf, size_t n) {
     int cnt;
 
     while (bufCnt <= 0) {
-        bufCnt = read(fd, buf, sizeof(buf));
+        bufCnt = readCallBack(buf, sizeof(buf));
         if (bufCnt < 0) {
-            if (errno != EINTR) return -1;
+            if (errno != EINTR)
+                return -1;
         } else if (bufCnt == 0) {
             return 0;
         } else {
@@ -62,7 +68,7 @@ ssize_t Buffer::writeNBytes(void *usrbuf, size_t n) {
     char *ptr = static_cast<char *>(usrbuf);
 
     while (nleft > 0) {
-        nwrite = write(fd, ptr, nleft);
+        nwrite = writeCallBack(ptr, nleft);
         if (nwrite < 0) {
             if (errno != EINTR)
                 return -1;
