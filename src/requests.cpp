@@ -154,6 +154,8 @@ std::string urlEncode(const std::string_view &s) {
 
 void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     std::string line = clientSocket.readLine();
+    if (line.empty())
+        return;
     std::vector<std::string> vec;
     split(vec, line, ' ');
     response->statusCode = std::stoi(vec[1]);
@@ -194,7 +196,6 @@ void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
 void convertJsonToUrlEncodeData(std::string &str,
                                 const rapidjson::Document &document) {
     if (document.IsObject()) {
-        str.push_back('?');
         for (rapidjson::Value::ConstMemberIterator iterator =
                  document.MemberBegin();
              iterator != document.MemberEnd(); ++iterator) {
@@ -230,7 +231,7 @@ void convertJsonToUrlEncodeData(std::string &str,
  *  这是因为url的生命周期不会过早结束
  */
 std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
-                          int pos, const rapidjson::Document &document) {
+                          int pos, rapidjson::Document *document) {
     int start = pos;
     for (; pos < url.size(); ++pos) {
         if (url[pos] == '/')
@@ -242,7 +243,10 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
         sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
     }
 
-    convertJsonToUrlEncodeData(sendMsg, document);
+    if (document != nullptr){
+        sendMsg.push_back('?');
+        convertJsonToUrlEncodeData(sendMsg, *document);
+    }
 
     sendMsg += " HTTP/1.1";
     sendMsg += CRLF;
@@ -258,7 +262,6 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
                        {"Accept-Encoding", "gzip"},
                        {"Accept", "*/*"},
                        {"Connection", "keep-alive"}};
-
     std::string sendMsg = method;
     for (auto &p : requestOption.headers) {
         sendHeader[p.first] = p.second;
@@ -277,16 +280,18 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
         host = sendHeader["Host"] =
             parseUrl(url, sendMsg, 8, requestOption.params);
     }
-    if (requestOption.data.IsObject()) {
-        convertJsonToUrlEncodeData(body, requestOption.data);
+    if (requestOption.data != nullptr && requestOption.data->IsObject()) {
+        convertJsonToUrlEncodeData(body, *requestOption.data);
         sendHeader["Content-Type"] = "application/x-www-form-urlencoded";
+        sendHeader["Content-Length"] = std::to_string(body.size());
     }
-    if (!requestOption.json.IsNull()) {
+    if (requestOption.json != nullptr && !requestOption.json->IsNull()) {
         rapidjson::StringBuffer stringBuffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
-        requestOption.json.Accept(writer);
-        sendMsg += stringBuffer.GetString();
+        requestOption.json->Accept(writer);
+        body = stringBuffer.GetString();
         sendHeader["Content-Type"] = "application/json";
+        sendHeader["Content-Length"] = std::to_string(body.size());
     }
     for (auto &p : sendHeader) {
         sendMsg += p.first + ": " + p.second + CRLF;
@@ -296,7 +301,8 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
     what_is(sendMsg);
     auto hostPtr = gethostbyname(host.c_str());
     HttpResponsePtr response = std::make_shared<HttpResponse>();
-    for (auto pptr = hostPtr->h_addr_list; *pptr != nullptr; ++pptr) {
+    if (hostPtr != nullptr) {
+        auto pptr = hostPtr->h_addr_list;
         const char *ip = inet_ntoa(*((in_addr *)*pptr));
         if (isHttps) {
             SslSocket clientSocket(ip, port);
@@ -313,10 +319,10 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
             clientSocket.send(sendMsg);
             request_help(clientSocket, response);
         }
-        break;
-    }
-    if (response->statusCode == 301) {
-        return request(method, response->headers["Location"], requestOption);
+        if (response->statusCode == 301) {
+            return request(method, response->headers["Location"],
+                           requestOption);
+        }
     }
     return response;
 }
@@ -334,6 +340,13 @@ HttpResponsePtr get(const std::string_view &url,
 HttpResponsePtr post(const std::string_view &url,
                      const RequestOption &requestOption) {
     return request("POST", url, requestOption);
+}
+
+RequestOption::RequestOption() {
+    data = nullptr;
+    params = nullptr;
+    json = nullptr;
+    timeout = -1;
 }
 
 CharsetConverter::CharsetConverter(const char *fromCharset,

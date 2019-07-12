@@ -10,7 +10,8 @@ int main() {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
         "Gecko) "
         "Chrome/74.0.3729.157 Safari/537.36";
-    std::string urls[] = {"https://www.baidu.com",
+    /* 
+    std::string urls[] = {"https://www.baiu.com",
                           "https://www.zhihu.com",
                           "https://vhyz.github.io",
                           "http://hssgame.com",
@@ -23,5 +24,16 @@ int main() {
         std::cout << r->statusCode << std::endl;
         getchar();
     }
+    */
+
+
+    // post data
+    rapidjson::Document d;
+    d.Parse(R"({"a":"a"})");
+    requestOption.json = &d;
+    requestOption.params = &d;
+    HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
+    std::cout << r->text << std::endl;
+
     return 0;
 }

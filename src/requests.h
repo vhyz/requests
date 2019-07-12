@@ -34,12 +34,12 @@ public:
 
 class RequestOption {
 public:
-    rapidjson::Document data;
-    rapidjson::Document params;
-    rapidjson::Document json;
+    rapidjson::Document* data;
+    rapidjson::Document* params;
+    rapidjson::Document* json;
     Dict headers;
     int timeout;
-    RequestOption() = default;
+    RequestOption();
 };
 
 class CharsetConverter {
