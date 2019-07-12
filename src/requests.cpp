@@ -12,12 +12,13 @@
 #include <functional>
 #include <iostream>
 #include <set>
-#include <thread>
 #include <vector>
 #include "DecompressGzip.h"
 #include "Logging.h"
 #include "Socket.h"
 #include "SslSocket.h"
+
+namespace requests {
 
 #define CRLF "\r\n"
 #define what_is(x) (std::cout << x << std::endl)
@@ -156,8 +157,7 @@ void request_help(Socket &clientSocket, const HttpResponsePtr &response) {
     std::string line = clientSocket.readLine();
     if (line.empty())
         return;
-    std::vector<std::string> vec;
-    split(vec, line, ' ');
+    std::vector<std::string> vec = split(line, ' ');
     response->statusCode = std::stoi(vec[1]);
     while (true) {
         line = clientSocket.readLine();
@@ -243,7 +243,7 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
         sendMsg += " " + urlEncode(url.substr(pos, url.size() - pos));
     }
 
-    if (document != nullptr){
+    if (document != nullptr) {
         sendMsg.push_back('?');
         convertJsonToUrlEncodeData(sendMsg, *document);
     }
@@ -263,8 +263,10 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
                        {"Accept", "*/*"},
                        {"Connection", "keep-alive"}};
     std::string sendMsg = method;
-    for (auto &p : requestOption.headers) {
-        sendHeader[p.first] = p.second;
+    if (requestOption.headersPtr != nullptr) {
+        for (auto &p : *(requestOption.headersPtr)) {
+            sendHeader[p.first] = p.second;
+        }
     }
     int port;
     bool isHttps;
@@ -273,22 +275,22 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
         port = 80;
         isHttps = false;
         host = sendHeader["Host"] =
-            parseUrl(url, sendMsg, 7, requestOption.params);
+            parseUrl(url, sendMsg, 7, requestOption.paramsPtr);
     } else {
         port = 443;
         isHttps = true;
         host = sendHeader["Host"] =
-            parseUrl(url, sendMsg, 8, requestOption.params);
+            parseUrl(url, sendMsg, 8, requestOption.paramsPtr);
     }
-    if (requestOption.data != nullptr && requestOption.data->IsObject()) {
-        convertJsonToUrlEncodeData(body, *requestOption.data);
+    if (requestOption.dataPtr != nullptr && requestOption.dataPtr->IsObject()) {
+        convertJsonToUrlEncodeData(body, *requestOption.dataPtr);
         sendHeader["Content-Type"] = "application/x-www-form-urlencoded";
         sendHeader["Content-Length"] = std::to_string(body.size());
     }
-    if (requestOption.json != nullptr && !requestOption.json->IsNull()) {
+    if (requestOption.jsonPtr != nullptr && !requestOption.jsonPtr->IsNull()) {
         rapidjson::StringBuffer stringBuffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
-        requestOption.json->Accept(writer);
+        requestOption.jsonPtr->Accept(writer);
         body = stringBuffer.GetString();
         sendHeader["Content-Type"] = "application/json";
         sendHeader["Content-Length"] = std::to_string(body.size());
@@ -304,21 +306,17 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
     if (hostPtr != nullptr) {
         auto pptr = hostPtr->h_addr_list;
         const char *ip = inet_ntoa(*((in_addr *)*pptr));
+        std::unique_ptr<Socket> clientSocket;
         if (isHttps) {
-            SslSocket clientSocket(ip, port);
-            if (clientSocket.connect() == false) {
-                return response;
-            }
-            clientSocket.send(sendMsg);
-            request_help(clientSocket, response);
+            clientSocket = std::make_unique<SslSocket>(ip, port);
         } else {
-            Socket clientSocket(ip, port);
-            if (clientSocket.connect() == false) {
-                return response;
-            }
-            clientSocket.send(sendMsg);
-            request_help(clientSocket, response);
+            clientSocket = std::make_unique<Socket>(ip, port);
         }
+        if (clientSocket->connect()) {
+            clientSocket->send(sendMsg);
+            request_help(*clientSocket, response);
+        }
+        clientSocket->shutdownClose();
         if (response->statusCode == 301) {
             return request(method, response->headers["Location"],
                            requestOption);
@@ -343,9 +341,10 @@ HttpResponsePtr post(const std::string_view &url,
 }
 
 RequestOption::RequestOption() {
-    data = nullptr;
-    params = nullptr;
-    json = nullptr;
+    dataPtr = nullptr;
+    paramsPtr = nullptr;
+    jsonPtr = nullptr;
+    headersPtr = nullptr;
     timeout = -1;
 }
 
@@ -362,3 +361,5 @@ int CharsetConverter::convert(const char *inbuf, int inlen, char *outbuf,
     return iconv(cd, (char **)&inbuf, (size_t *)&inlen, &outbuf,
                  (size_t *)&outlen);
 }
+
+}  // namespace requests

@@ -5,34 +5,21 @@
 #include "requests.h"
 
 int main() {
-    RequestOption requestOption;
-    requestOption.headers["User-Agent"] =
+    requests::RequestOption requestOption;
+    requests::Headers headers;
+    headers["User-Agent"] =
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
         "Gecko) "
         "Chrome/74.0.3729.157 Safari/537.36";
-    /* 
-    std::string urls[] = {"https://www.baiu.com",
-                          "https://www.zhihu.com",
-                          "https://vhyz.github.io",
-                          "http://hssgame.com",
-                          "https://club.huawei.com/forum-2404-3.html",
-                          "https://www.bilibili.com/video/av24353925/",
-                          "https://www.sina.com.cn/"};
-    for (size_t i = 0; i < sizeof(urls) / sizeof(std::string); ++i) {
-        HttpResponsePtr r = get(urls[i], requestOption);
-        // std::cout << r->text << std::endl;
-        std::cout << r->statusCode << std::endl;
-        getchar();
-    }
-    */
-
+    requestOption.headersPtr = &headers;
 
     // post data
     rapidjson::Document d;
-    d.Parse(R"({"a":"a"})");
-    requestOption.json = &d;
-    requestOption.params = &d;
-    HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
+    d.Parse(R"({"test":"test","hello":"world"})");
+    requestOption.jsonPtr = &d;
+    requestOption.paramsPtr = &d;
+    requests::HttpResponsePtr r =
+        post("http://httpbin.org/post", requestOption);
     std::cout << r->text << std::endl;
 
     return 0;
