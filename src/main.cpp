@@ -18,9 +18,15 @@ int main() {
     d.Parse(R"({"test":"test","hello":"world"})");
     requestOption.jsonPtr = &d;
     requestOption.paramsPtr = &d;
+    requestOption.dataPtr = &d;
     requests::HttpResponsePtr r =
         post("http://httpbin.org/post", requestOption);
+    std::cout << r->statusCode << std::endl;
     std::cout << r->text << std::endl;
+
+    for (auto &p : r->headers) {
+        std::cout << p.first << ": " << p.second << std::endl;
+    }
 
     return 0;
 }

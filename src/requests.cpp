@@ -227,11 +227,9 @@ void convertJsonToUrlEncodeData(std::string &str,
 
 /*
  *  解析url，返回host
- *  为了防止拷贝，返回string_view
- *  这是因为url的生命周期不会过早结束
  */
-std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
-                          int pos, rapidjson::Document *document) {
+std::string parseUrl(const std::string_view &url, std::string &sendMsg, int pos,
+                     rapidjson::Document *document) {
     int start = pos;
     for (; pos < url.size(); ++pos) {
         if (url[pos] == '/')
@@ -250,7 +248,7 @@ std::string_view parseUrl(const std::string_view &url, std::string &sendMsg,
 
     sendMsg += " HTTP/1.1";
     sendMsg += CRLF;
-    return url.substr(start, pos - start);
+    return std::string(url.substr(start, pos - start));
 }
 
 /*
@@ -287,7 +285,7 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
         sendHeader["Content-Type"] = "application/x-www-form-urlencoded";
         sendHeader["Content-Length"] = std::to_string(body.size());
     }
-    if (requestOption.jsonPtr != nullptr && !requestOption.jsonPtr->IsNull()) {
+    if (requestOption.jsonPtr != nullptr) {
         rapidjson::StringBuffer stringBuffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
         requestOption.jsonPtr->Accept(writer);

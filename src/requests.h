@@ -60,13 +60,13 @@ HttpResponsePtr request(const std::string &method, const std::string_view &url,
                         const RequestOption &requestOption);
 
 HttpResponsePtr head(const std::string_view &url,
-                     const RequestOption &requestOption);
+                     const RequestOption &requestOption = RequestOption());
 
 HttpResponsePtr get(const std::string_view &url,
-                    const RequestOption &requestOption);
+                    const RequestOption &requestOption = RequestOption());
 
 HttpResponsePtr post(const std::string_view &url,
-                     const RequestOption &requestOption);
+                     const RequestOption &requestOption = RequestOption());
 
 }  // namespace requests
 #endif  // REQUESTS_REQUESTS_H
