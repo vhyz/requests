@@ -7,7 +7,7 @@
 SslSocket::SslSocket(const std::string& ip, int port)
     : SslSocket(ip.c_str(), port) {}
 
-SslSocket::SslSocket(const char* ip, int port) : Socket(ip, port) {
+SslSocket::SslSocket(const char* ip, int port) {
     sockfd_init(ip, port);
     sslInit();
     ssl = SSL_new(ctx);
