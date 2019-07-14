@@ -35,7 +35,9 @@ std::cout << r->text << std::endl;
 
 当我们用GET发送数据时，数据会以urlencoded的方式发送
 
-例如，http://httpbin.org/get?key1=val1&key2=val2，我们可以创建一个RequestOption对象传递paramsPtr参数，该库使用的JSON库为RapidJSON
+例如，http://httpbin.org/get?key1=val1&key2=val2
+
+我们可以创建一个RequestOption对象传递paramsPtr参数，该库使用的JSON库为RapidJSON
 
 ```C++
 requests::RequestOption requestOption;
