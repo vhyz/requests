@@ -18,18 +18,18 @@
 
 最简单的一个GET请求
 
-'''C++
+```C++
 requests::HttpResponsePtr r = requests::get("https://api.github.com/events");
-'''
+```
 
 我们得到的是一个Response的智能指针，我们可以得到这个Response的正文、报头以及响应码
 
 正文为std::string类型，响应码为int类型
 
-'''C++
+```C++
 std::cout << r->statusCode << std::endl;
 std::cout << r->text << std::endl;
-'''
+```
 
 ### 传递URL参数
 
@@ -37,19 +37,19 @@ std::cout << r->text << std::endl;
 
 例如，http://httpbin.org/get?key1=val1&key2=val2，我们可以创建一个RequestOption对象传递paramsPtr参数，该库使用的JSON库为RapidJSON
 
-'''C++
+```C++
 requests::RequestOption requestOption;
 rapidjson::Document d;
 d.Parse(R"({"test":"test","hello":"world"})");
 requestOption.paramsPtr = &d;
 requests::HttpResponsePtr r = requests::get("http://httpbin.org/get", requestOption)
-'''
+```
 
 ### 定制请求头
 
 要定制请求头，我们需要先创建一个Headers对象，Headers对象为std::map<std::string, std::string>类型
 
-'''C++
+```C++
 requests::RequestOption requestOption;
 requests::Headers headers;
 headers["User-Agent"] =
@@ -58,15 +58,15 @@ headers["User-Agent"] =
     "Chrome/74.0.3729.157 Safari/537.36";
 requestOption.headersPtr = &headers;
 requests::HttpResponsePtr r = requests::get("http://httpbin.org/get", requestOption)
-'''
+```
 
 要打印headers，可以像操作std::map一样打印
 
-'''C++
+```C++
 for (auto &p : r->headers) {
     std::cout << p.first << ": " << p.second << std::endl;
 }
-'''
+```
 
 ### POST数据
 
@@ -76,25 +76,25 @@ POST发送数据时，有两种方式，分别为x-www-form-urlencoded和json方
 
 我们首先创建RequestOption和待发送的JSON对象
 
-'''C++
+```C++
 requests::RequestOption requestOption;
 rapidjson::Document d;
 d.Parse(R"({"test":"test","hello":"world"})");
-'''
+```
 
 以x-www-form-urlencoded方式发送:
 
-'''C++
+```C++
 requestOption.dataPtr = &d;
 requests::HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
-'''
+```
 
 以json方式发送：
 
-'''C++
+```C++
 requestOption.jsonPtr = &d;
 requests::HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
-'''
+```
 
 
 ## 已完成
