@@ -40,10 +40,12 @@ std::cout << r->text << std::endl;
 我们可以创建一个RequestOption对象传递paramsPtr参数，该库使用的JSON库为RapidJSON
 
 ```C++
-requests::RequestOption requestOption;
 rapidjson::Document d;
 d.Parse(R"({"test":"test","hello":"world"})");
+
+requests::RequestOption requestOption;
 requestOption.paramsPtr = &d;
+
 requests::HttpResponsePtr r = requests::get("http://httpbin.org/get", requestOption)
 ```
 
@@ -52,13 +54,15 @@ requests::HttpResponsePtr r = requests::get("http://httpbin.org/get", requestOpt
 要定制请求头，我们需要先创建一个Headers对象，Headers对象为std::map<std::string, std::string>类型
 
 ```C++
-requests::RequestOption requestOption;
 requests::Headers headers;
 headers["User-Agent"] =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
     "Gecko) "
     "Chrome/74.0.3729.157 Safari/537.36";
+
+requests::RequestOption requestOption;
 requestOption.headersPtr = &headers;
+
 requests::HttpResponsePtr r = requests::get("http://httpbin.org/get", requestOption)
 ```
 
@@ -97,7 +101,6 @@ requests::HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
 requestOption.jsonPtr = &d;
 requests::HttpResponsePtr r = post("http://httpbin.org/post", requestOption);
 ```
-
 
 ## 已完成
 
